@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ludvigs sparekalkulator</title>
+<style>
+/* Layout: one column, summary tiles first, then two control cards, then charts. Phone-first. */
+:root{
+  --bg:#f6f8f7; --surface:#ffffff; --ink:#132033; --muted:#5b6673; --line:#d9e0dc;
+  --accent:#0f8a5f; --accent-soft:#dff3ea; --bank:#c7791a; --bank-soft:#fbeedc; --kog:#2a62b8; --smb:#7a5cc6;
+  --display:-apple-system,"SF Pro Display",system-ui,sans-serif; --body:-apple-system,system-ui,sans-serif; --mono:ui-monospace,"SF Mono",Menlo,monospace;
+  --grid:#e6ebe8; --ticks:#6d7883;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1517; --surface:#171f22; --ink:#eef3f0; --muted:#9aa7a2; --line:#2a3539;
+  --accent:#3dc48e; --accent-soft:#163b2e; --bank:#e3a04a; --bank-soft:#3a2a12; --kog:#6c9ee8; --smb:#a98ef0; --grid:#263034; --ticks:#8e9a95; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1517; --surface:#171f22; --ink:#eef3f0; --muted:#9aa7a2; --line:#2a3539;
+  --accent:#3dc48e; --accent-soft:#163b2e; --bank:#e3a04a; --bank-soft:#3a2a12; --kog:#6c9ee8; --smb:#a98ef0; --grid:#263034; --ticks:#8e9a95; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);margin:0;padding-inline:16px;padding-block:24px 48px;line-height:1.55}
+.wrap{max-width:880px;margin:0 auto;display:grid;gap:20px}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(26px,5vw,36px);margin:0;letter-spacing:-.01em;text-wrap:balance}
+h2{font-family:var(--display);font-weight:600;font-size:17px;margin:0 0 10px}
+p{margin:0;max-width:65ch}
+.lead{color:var(--muted);font-size:15px}
+.eyebrow{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);font-weight:500}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;min-width:0}
+.tile .l{font-size:12px;color:var(--muted)}
+.tile .v{font-family:var(--mono);font-size:20px;font-weight:500;font-variant-numeric:tabular-nums;margin-top:2px}
+.tile .s{font-size:12px;color:var(--muted);margin-top:4px}
+.tile.hi{background:var(--accent-soft);border-color:transparent}
+.tile.hi .v{color:var(--accent)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px}
+.ctl{display:grid;gap:14px}
+.row{display:grid;gap:6px}
+.row label{display:flex;justify-content:space-between;align-items:baseline;font-size:14px;font-weight:500;gap:12px}
+.row label output{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--accent)}
+.row.bank label output{color:var(--bank)}
+input[type=range]{width:100%;accent-color:var(--accent);height:28px;margin:0}
+.row.bank input[type=range]{accent-color:var(--bank)}
+.hint{font-size:12px;color:var(--muted)}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{flex:1;min-width:70px;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:999px;padding:7px 10px;font:500 13px var(--body);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.seg button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media (max-width:640px){.two{grid-template-columns:1fr}}
+.chartbox{position:relative;width:100%;height:280px}
+.legend{display:flex;flex-wrap:wrap;gap:8px 16px;font-size:12px;color:var(--muted);margin-top:8px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:12px;height:3px;border-radius:2px;display:inline-block}
+.legend i.sq{width:11px;height:11px;border-radius:3px}
+table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line)}
+th{font-size:12px;color:var(--muted);font-weight:500}
+td.n,th.n{text-align:right;font-family:var(--mono)}
+.note{font-size:13px;color:var(--muted)}
+.callout{border-left:3px solid var(--bank);padding:10px 14px;background:var(--bank-soft);border-radius:0 10px 10px 0;font-size:14px}
+.callout b{color:var(--bank)}
+ul{margin:8px 0 0;padding-left:20px;font-size:14px}
+li{margin:4px 0}
+footer{font-size:12px;color:var(--muted)}
+@media (prefers-reduced-motion:no-preference){.tile .v{transition:color .2s}}
+</style>
+</head><body>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Ludvigs sparepenger · oktober 2026</div>
+    <h1>Hva skjer hvis du sparer litt mer?</h1>
+    <p class="lead">Dra i bryterne og se hvordan pengene dine kan vokse frem til du er 18 og 25. Du har 15 609 kr i fond og aksjer på ASK-kontoen, og omtrent 60 000 kr på bankkonto.</p>
+  </header>
+
+  <section class="tiles" aria-live="polite">
+    <div class="tile"><div class="l">Når du er 18</div><div class="v" id="v18">–</div><div class="s" id="s18"></div></div>
+    <div class="tile hi"><div class="l">Når du er 25</div><div class="v" id="v25">–</div><div class="s" id="s25"></div></div>
+    <div class="tile"><div class="l">Børsen har gitt deg (ved 25)</div><div class="v" id="gain">–</div><div class="s">penger du ikke har spart selv</div></div>
+    <div class="tile"><div class="l">Hvis alt sto i banken</div><div class="v" id="bankalt">–</div><div class="s" id="bankdiff"></div></div>
+  </section>
+
+  <div class="two">
+    <section class="card ctl">
+      <h2>Sparing hver måned</h2>
+      <div class="row">
+        <label for="monthly">Fast trekk til globalt indeksfond <output id="monthlyOut">500 kr</output></label>
+        <input type="range" id="monthly" min="0" max="3000" step="100" value="500">
+        <div class="hint">Settes opp som spareavtale i Nordnet-appen. Går automatisk, uansett om børsen er opp eller ned.</div>
+      </div>
+      <div class="row">
+        <label>Forventet årlig vekst i fond</label>
+        <div class="seg" id="rateSeg" role="group" aria-label="Forventet avkastning">
+          <button type="button" data-rate="4" aria-pressed="false">4 % forsiktig</button>
+          <button type="button" data-rate="7" aria-pressed="true">7 % normalt</button>
+          <button type="button" data-rate="10" aria-pressed="false">10 % optimistisk</button>
+        </div>
+        <div class="hint">7 % er omtrent det aksjemarkedet har gitt i snitt over lang tid. Enkeltår kan bli −20 % eller +30 %.</div>
+      </div>
+    </section>
+
+    <section class="card ctl">
+      <h2>De 60 000 i banken</h2>
+      <div class="row bank">
+        <label for="move">Flytt fra bank til indeksfond <output id="moveOut">45 000 kr</output></label>
+        <input type="range" id="move" min="0" max="60000" step="2500" value="45000">
+        <div class="hint">Resten blir stående som buffer: <span id="buffer">15 000 kr</span>. En buffer er penger du kan bruke på kort varsel uten å selge fond.</div>
+      </div>
+      <div class="row bank">
+        <label for="bankrate">Rente på bankkonto <output id="bankrateOut">3,5 %</output></label>
+        <input type="range" id="bankrate" min="0" max="6" step="0.25" value="3.5">
+        <div class="hint">Sjekk hva kontoen din faktisk gir. Mange brukskontoer gir nær 0 %, en god sparekonto rundt 3–4 %.</div>
+      </div>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>Slik vokser pengene</h2>
+    <div class="chartbox"><canvas id="growth" role="img" aria-label="Linjediagram som viser verdien av sparingen fra 15 til 25 år, sammenlignet med å la pengene stå i banken og med det som er betalt inn"></canvas></div>
+    <div class="legend">
+      <span><i style="background:var(--accent)"></i>Fond + spareavtale</span>
+      <span><i style="background:var(--bank)"></i>Alt i banken i stedet</span>
+      <span><i style="background:var(--ticks)"></i>Det du har betalt inn</span>
+    </div>
+  </section>
+
+  <div class="two">
+    <section class="card">
+      <h2>Fordeling etter planen</h2>
+      <div class="chartbox" style="height:240px"><canvas id="alloc" role="img" aria-label="Kakediagram over fordeling av alle pengene etter planen"></canvas></div>
+      <div class="legend" id="allocLegend"></div>
+    </section>
+    <section class="card">
+      <h2>År for år</h2>
+      <table>
+        <thead><tr><th>Alder</th><th class="n">Betalt inn</th><th class="n">Fond</th><th class="n">Bank i stedet</th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>Hva bør du gjøre med de 60 000?</h2>
+    <div class="callout"><b>Kort svar:</b> behold en buffer på 10 000–15 000 kr i banken, og flytt resten inn i det globale indeksfondet. Pengene du ikke trenger de neste 5 årene tjener mer på børsen enn i banken, selv om det svinger underveis.</div>
+    <ul>
+      <li><b>Buffer først.</b> Penger til ting som dukker opp (mobil, reise, reparasjon) skal stå i banken. Du skal aldri måtte selge fond på et dårlig tidspunkt fordi du trenger kontanter.</li>
+      <li><b>Alt på én gang eller litt og litt?</b> Historisk lønner det seg oftest å flytte alt med en gang. Men hvis det føles skummelt, kan du dele det i 6 porsjoner og flytte én per måned. Du taper litt forventet avkastning, men sover bedre.</li>
+      <li><b>Hvordan i Nordnet-appen:</b> Overfør fra banken til ASK-kontoen (Meny → Innskudd → kontonummeret til ASK). Når pengene er inne: søk opp det globale indeksfondet → Kjøp → beløp. Pengene står inne i ASK uten skatt så lenge du ikke tar dem ut igjen.</li>
+      <li><b>Hvorfor ikke mer i Kongsberg eller DNB SMB?</b> De er allerede en stor del av pengene dine. Nye penger skal spre risikoen, ikke øke den.</li>
+    </ul>
+  </section>
+
+  <footer>Regneeksempel laget av Claud.ia Siffer, AI-assistent for Petter Rogstad, SAGA Service Partner Prosjekt AS. Utgangspunkt: 15 609 kr på ASK fordelt 55 % globalt indeksfond, 25 % DNB SMB, 20 % Kongsberg Gruppen etter planen, pluss 60 000 kr på bankkonto. Tallene er anslag, ikke løfter, og dette er ikke finansiell rådgivning. Beslutninger tas av Petter og Ludvig sammen.</footer>
+</div>
+
+<script>
+const ASK = 15609, BANK = 60000, AGE0 = 15, YEARS = 10;
+const nok = v => Math.round(v).toLocaleString('nb-NO') + ' kr';
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+const state = { monthly: 500, rate: 7, move: 45000, bankrate: 3.5 };
+
+function project(start, monthly, rate) {
+  const m = Math.pow(1 + rate/100, 1/12) - 1; let v = start; const out = [v];
+  for (let i = 1; i <= YEARS*12; i++) { v = v*(1+m) + monthly; if (i % 12 === 0) out.push(v); }
+  return out;
+}
+
+function render() {
+  const { monthly, rate, move, bankrate } = state;
+  const fund = project(ASK + move, monthly, rate);
+  const bankOnly = project(ASK + move, monthly, bankrate);
+  const paid = Array.from({length: YEARS+1}, (_, i) => ASK + move + monthly*12*i);
+  const buffer = BANK - move;
+  const totalAt = i => fund[i] + buffer*Math.pow(1+bankrate/100, i);
+
+  document.getElementById('monthlyOut').textContent = nok(monthly);
+  document.getElementById('moveOut').textContent = nok(move);
+  document.getElementById('buffer').textContent = nok(buffer);
+  document.getElementById('bankrateOut').textContent = bankrate.toLocaleString('nb-NO') + ' %';
+
+  document.getElementById('v18').textContent = nok(fund[3]);
+  document.getElementById('s18').textContent = 'i fond, pluss ' + nok(buffer) + ' buffer';
+  document.getElementById('v25').textContent = nok(fund[10]);
+  document.getElementById('s25').textContent = 'totalt ' + nok(totalAt(10)) + ' med buffer';
+  document.getElementById('gain').textContent = nok(fund[10] - paid[10]);
+  document.getElementById('bankalt').textContent = nok(bankOnly[10]);
+  const diff = fund[10] - bankOnly[10];
+  document.getElementById('bankdiff').textContent = (diff >= 0 ? nok(diff) + ' mindre enn fond' : nok(-diff) + ' mer enn fond') + ' ved 25';
+
+  const labels = Array.from({length: YEARS+1}, (_, i) => AGE0 + i);
+  const acc = css('--accent'), bank = css('--bank'), ticks = css('--ticks'), grid = css('--grid'), ink = css('--ink');
+  drawLines(document.getElementById('growth'), labels, [
+    { data: fund, color: acc, width: 2.5, fill: true, dots: [3,10] },
+    { data: bankOnly, color: bank, width: 2, dash: [6,4] },
+    { data: paid, color: ticks, width: 1.5, dash: [2,4] }
+  ], ticks, grid);
+
+  const alloc = [
+    ['Globalt indeksfond', ASK*0.55 + move, acc],
+    ['DNB SMB', ASK*0.25, css('--smb')],
+    ['Kongsberg Gruppen', ASK*0.20, css('--kog')],
+    ['Buffer i bank', buffer, bank]
+  ];
+  const tot = alloc.reduce((s, a) => s + a[1], 0);
+  drawDonut(document.getElementById('alloc'), alloc, tot, css('--surface'), ink, ticks);
+  document.getElementById('allocLegend').innerHTML = alloc.map(a => `<span><i class="sq" style="background:${a[2]}"></i>${a[0]} ${Math.round(a[1]/tot*100)} %</span>`).join('');
+
+  document.getElementById('tbody').innerHTML = [0,3,5,7,10].map(i =>
+    `<tr><td>${AGE0+i}${i===0?' (i dag)':''}</td><td class="n">${nok(paid[i])}</td><td class="n">${nok(fund[i])}</td><td class="n">${nok(bankOnly[i])}</td></tr>`).join('');
+}
+
+
+function setup(cv){ const r=cv.parentElement.getBoundingClientRect(); const dpr=window.devicePixelRatio||1;
+  cv.width=Math.round(r.width*dpr); cv.height=Math.round(r.height*dpr); cv.style.width=r.width+'px'; cv.style.height=r.height+'px';
+  const c=cv.getContext('2d'); c.setTransform(dpr,0,0,dpr,0,0); c.clearRect(0,0,r.width,r.height); return [c,r.width,r.height]; }
+function drawLines(cv, labels, series, tickCol, gridCol){
+  const [c,W,H]=setup(cv); const L=44,R=12,T=12,B=28; const w=W-L-R, h=H-T-B;
+  const max=Math.max(...series.flatMap(s=>s.data))*1.05; const n=labels.length;
+  const x=i=>L+i/(n-1)*w, y=v=>T+h-v/max*h;
+  c.font='11px -apple-system,system-ui,sans-serif'; c.fillStyle=tickCol; c.strokeStyle=gridCol; c.lineWidth=1;
+  const step=max>400000?100000:max>200000?50000:max>80000?20000:10000;
+  for(let v=0; v<=max; v+=step){ c.beginPath(); c.moveTo(L,y(v)); c.lineTo(W-R,y(v)); c.stroke(); c.textAlign='right'; c.fillText(Math.round(v/1000)+'k', L-6, y(v)+4); }
+  c.textAlign='center'; labels.forEach((l,i)=>{ if(i%2===0||i===n-1) c.fillText(l+' år', x(i), H-8); });
+  for(const s of series){ c.setLineDash(s.dash||[]); c.strokeStyle=s.color; c.lineWidth=s.width; c.lineJoin='round'; c.lineCap='round';
+    c.beginPath(); s.data.forEach((v,i)=> i?c.lineTo(x(i),y(v)):c.moveTo(x(i),y(v))); c.stroke();
+    if(s.fill){ c.setLineDash([]); const ref=series[2].data; c.beginPath(); s.data.forEach((v,i)=> i?c.lineTo(x(i),y(v)):c.moveTo(x(i),y(v)));
+      for(let i=n-1;i>=0;i--) c.lineTo(x(i),y(ref[i])); c.closePath(); c.fillStyle=s.color+'22'; c.fill(); }
+    if(s.dots){ c.setLineDash([]); c.fillStyle=s.color; for(const i of s.dots){ c.beginPath(); c.arc(x(i),y(s.data[i]),4.5,0,7); c.fill();
+      c.font='500 12px -apple-system,system-ui,sans-serif'; c.textAlign=i===n-1?'right':'left'; c.fillText(nok(s.data[i]), x(i)+(i===n-1?-8:8), y(s.data[i])-10); c.font='11px -apple-system,system-ui,sans-serif'; } }
+  }
+  c.setLineDash([]);
+}
+function drawDonut(cv, alloc, tot, surf, ink, muted){
+  const [c,W,H]=setup(cv); const cx=W/2, cy=H/2, r=Math.min(W,H)/2-6, ri=r*0.62; let a=-Math.PI/2;
+  for(const [,v,col] of alloc){ if(v<=0) continue; const b=a+v/tot*2*Math.PI; c.beginPath(); c.arc(cx,cy,r,a,b); c.arc(cx,cy,ri,b,a,true); c.closePath(); c.fillStyle=col; c.fill(); c.strokeStyle=surf; c.lineWidth=2; c.stroke(); a=b; }
+  c.fillStyle=ink; c.textAlign='center'; c.font='500 17px ui-monospace,Menlo,monospace'; c.fillText(nok(tot), cx, cy+2);
+  c.fillStyle=muted; c.font='12px -apple-system,system-ui,sans-serif'; c.fillText('totalt', cx, cy+20);
+}
+
+document.getElementById('monthly').addEventListener('input', e => { state.monthly = +e.target.value; render(); });
+document.getElementById('move').addEventListener('input', e => { state.move = +e.target.value; render(); });
+document.getElementById('bankrate').addEventListener('input', e => { state.bankrate = +e.target.value; render(); });
+document.querySelectorAll('#rateSeg button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('#rateSeg button').forEach(x => x.setAttribute('aria-pressed', 'false'));
+  b.setAttribute('aria-pressed', 'true'); state.rate = +b.dataset.rate; render();
+}));
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', render);
+window.addEventListener('resize', render);
+render();
+</script>
+</body></html>
